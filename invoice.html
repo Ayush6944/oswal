@@ -1,0 +1,156 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Invoice | OSWAL Publication</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body{background:#f4f6fb;font-family:'Segoe UI';}
+.invoice-box{
+background:#fff;
+padding:40px;
+border-radius:12px;
+box-shadow:0 5px 20px rgba(0,0,0,0.08);
+animation:fade 0.4s ease;
+}
+@keyframes fade{
+from{opacity:0;transform:translateY(20px);}
+to{opacity:1;transform:translateY(0);}
+}
+.logo{
+font-size:22px;
+font-weight:700;
+color:#1e3a8a;
+}
+.signature{
+margin-top:60px;
+text-align:right;
+font-style:italic;
+}
+</style>
+</head>
+
+<body class="container py-5">
+
+<div class="invoice-box">
+
+<div class="d-flex justify-content-between mb-4">
+<div>
+<div class="logo">OSWAL Publication</div>
+<small>Noida, India</small>
+</div>
+<div class="text-end">
+<h5>INVOICE</h5>
+<p id="invoiceNo"></p>
+<p id="invoiceDate"></p>
+</div>
+</div>
+
+<hr>
+
+<div class="row mb-4">
+<div class="col-md-6">
+<h6>Bill To:</h6>
+<p id="clientName"></p>
+<p id="clientAddress"></p>
+<p id="clientPhone"></p>
+</div>
+<div class="col-md-6 text-end">
+<p><strong>Status:</strong> <span id="orderStatus"></span></p>
+<p><strong>Delivery:</strong> <span id="deliveryDate"></span></p>
+<p><strong>Payment:</strong> <span id="paymentStatus"></span></p>
+</div>
+</div>
+
+<table class="table">
+<thead>
+<tr>
+<th>Book</th>
+<th>Price</th>
+<th>Qty</th>
+<th>Total</th>
+</tr>
+</thead>
+<tbody id="itemList"></tbody>
+</table>
+
+<div class="text-end">
+<p>Subtotal: ₹<span id="subtotal"></span></p>
+<p>Discount (15%): ₹<span id="discount"></span></p>
+<h5>Total Paid: ₹<span id="grandTotal"></span></h5>
+</div>
+
+<div class="signature">
+Authorized Signatory<br>
+OSWAL Publication
+</div>
+
+<button class="btn btn-primary mt-4"
+onclick="window.print()">
+Print Invoice
+</button>
+
+</div>
+
+<script>
+
+let orders=
+JSON.parse(localStorage.getItem("erp_orders"))||[];
+
+let lastOrder=orders[orders.length-1];
+
+let customer=lastOrder.customerDetails;
+
+document.getElementById("invoiceNo").innerText=
+"Invoice No: "+lastOrder.invoiceNumber;
+
+document.getElementById("invoiceDate").innerText=
+"Date: "+lastOrder.date;
+
+document.getElementById("clientName").innerText=
+"Name: "+customer.fullName;
+
+document.getElementById("clientAddress").innerText=
+"Address: "+customer.address+", "+customer.city+", "+
+customer.state+" - "+customer.pincode;
+
+document.getElementById("clientPhone").innerText=
+"Contact: "+customer.phone;
+
+document.getElementById("deliveryDate").innerText=
+lastOrder.deliveryDate;
+
+document.getElementById("orderStatus").innerText=
+lastOrder.orderStatus;
+
+document.getElementById("paymentStatus").innerText=
+lastOrder.paymentStatus;
+
+let subtotal=0;
+
+lastOrder.items.forEach(item=>{
+let total=item.price*item.qty;
+subtotal+=total;
+
+document.getElementById("itemList").innerHTML+=`
+<tr>
+<td>${item.name}</td>
+<td>₹${item.price}</td>
+<td>${item.qty}</td>
+<td>₹${total}</td>
+</tr>
+`;
+});
+
+let discount=Math.floor(subtotal*0.15);
+let grand=subtotal-discount;
+
+document.getElementById("subtotal").innerText=subtotal;
+document.getElementById("discount").innerText=discount;
+document.getElementById("grandTotal").innerText=grand;
+
+</script>
+
+</body>
+</html>

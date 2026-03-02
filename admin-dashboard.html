@@ -1,164 +1,169 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OSWAL Publication ERP</title>
+<title>OSWAL ERP - Admin</title>
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body{background:#f4f6fb;font-family:Open Sans;}
-#sidebar{width:240px;height:100vh;position:fixed;background:#1e293b;color:#fff;padding:20px;}
-#sidebar h4{font-weight:700;margin-bottom:30px;}
-#sidebar a{display:block;color:#cbd5e1;padding:10px;border-radius:6px;text-decoration:none;margin-bottom:8px;}
-#sidebar a:hover,#sidebar a.active{background:#3b82f6;color:#fff;}
-#content{margin-left:240px;padding:25px;}
-.card{border:none;border-radius:12px;box-shadow:0 5px 15px rgba(0,0,0,.05);}
-.filter-btn{margin-right:6px;}
-.topbar{background:#fff;padding:15px 20px;border-radius:12px;margin-bottom:20px;box-shadow:0 5px 15px rgba(0,0,0,.05);}
-.stat-card{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;}
-.stat-card h6{opacity:0.8;}
-.stat-card h3{font-weight:700;}
+body{margin:0;font-family:'Segoe UI';background:#f4f6fb;}
+.sidebar{width:240px;height:100vh;position:fixed;background:#1e293b;color:#fff;padding:20px;}
+.sidebar a{display:block;color:#cbd5e1;padding:10px;text-decoration:none;border-radius:6px;margin-bottom:5px;}
+.sidebar a:hover,.active{background:#3b82f6;color:#fff;}
+.main{margin-left:240px;padding:25px;}
+.card{border:none;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,.05);}
+.status-Pending{color:#f59e0b;font-weight:600;}
+.status-Approved{color:#3b82f6;font-weight:600;}
+.status-Shipped{color:#6366f1;font-weight:600;}
+.status-Delivered{color:#16a34a;font-weight:600;}
 </style>
 </head>
 
 <body>
 
-<div id="sidebar">
+<div class="sidebar">
 <h4>OSWAL ERP</h4>
-<a href="#" class="active" data-section="dashboard">Dashboard</a>
-<a href="#" data-section="orders">Orders</a>
-<a href="#" data-section="inventory">Inventory</a>
-<a href="#" data-section="warehouse">Warehouse</a>
-<a href="#" data-section="reports">Reports</a>
-<a href="#" id="logoutBtn">Logout</a>
+<a href="#" onclick="showSection('dashboard')" class="active">Dashboard</a>
+<a href="#" onclick="showSection('orders')">Orders</a>
+<a href="#" onclick="logout()">Logout</a>
 </div>
 
-<div id="content">
-
-<!-- TOP BAR -->
-<div class="topbar d-flex justify-content-between align-items-center">
-  <div>
-    <h5 class="mb-0">Welcome to OSWAL Publication ERP</h5>
-    <small class="text-muted">Publication Sales & Inventory System</small>
-  </div>
-  <div>
-    <span class="badge bg-dark me-2" id="roleBadge">Role</span>
-    <span class="badge bg-primary" id="userEmail">email@domain.com</span>
-  </div>
-</div>
+<div class="main">
 
 <!-- DASHBOARD -->
-<section id="dashboard-section">
+<div id="dashboard-section">
 
-<div class="mb-3">
-<button class="btn btn-sm btn-outline-primary filter-btn" onclick="renderAll()">Refresh</button>
-</div>
+<h5>Admin Dashboard</h5>
 
-<div class="row g-3">
-<div class="col-md-3">
-<div class="card stat-card p-3">
-<h6>Total Sales</h6>
-<h3 id="totalSales">₹0</h3>
-</div>
-</div>
-<div class="col-md-3">
-<div class="card p-3">
-<h6>Payment Received</h6>
-<h3 id="paidAmount">₹0</h3>
-</div>
-</div>
-<div class="col-md-3">
-<div class="card p-3">
-<h6>Payment Pending</h6>
-<h3 id="pendingAmount">₹0</h3>
-</div>
-</div>
-<div class="col-md-3">
-<div class="card p-3">
-<h6>Total Orders</h6>
-<h3 id="totalOrders">0</h3>
-</div>
-</div>
+<div class="row g-3 my-3">
+<div class="col-md-3"><div class="card p-3"><h6>Total Orders</h6><h3 id="totalOrders">0</h3></div></div>
+<div class="col-md-3"><div class="card p-3"><h6>Pending</h6><h3 id="pendingOrders">0</h3></div></div>
+<div class="col-md-3"><div class="card p-3"><h6>Delivered</h6><h3 id="deliveredOrders">0</h3></div></div>
+<div class="col-md-3"><div class="card p-3"><h6>Revenue</h6><h3 id="totalRevenue">₹0</h3></div></div>
 </div>
 
-<div class="card mt-4 p-3">
-<h5>Sales Overview</h5>
 <canvas id="salesChart"></canvas>
-</div>
 
-</section>
+</div>
 
 <!-- ORDERS -->
-<section id="orders-section" style="display:none;">
-<div class="card p-3">
-<h5>Add Order</h5>
-<div class="row g-2">
-<div class="col"><input id="bookName" class="form-control" placeholder="Book Name"></div>
-<div class="col"><input id="quantity" type="number" class="form-control" placeholder="Qty"></div>
-<div class="col"><input id="price" type="number" class="form-control" placeholder="Price"></div>
-<div class="col">
-<button class="btn btn-primary w-100" onclick="addOrder()">Add</button>
-</div>
-</div>
-</div>
+<div id="orders-section" style="display:none;">
 
-<div class="card mt-4 p-3">
-<h5>All Orders</h5>
-<table class="table">
+<h5>Manage Orders</h5>
+
+<table class="table mt-3">
 <thead>
 <tr>
 <th>ID</th>
-<th>Book</th>
-<th>Qty</th>
+<th>Client</th>
 <th>Total</th>
-<th>Paid</th>
-<th>Remaining</th>
 <th>Status</th>
+<th>Action</th>
 </tr>
 </thead>
 <tbody id="orderTable"></tbody>
 </table>
-</div>
-</section>
 
-<!-- INVENTORY -->
-<section id="inventory-section" style="display:none;">
-<div class="card p-3">
-<h5>Inventory</h5>
-<table class="table">
-<thead>
+</div>
+
+</div>
+
+<script>
+
+if(localStorage.getItem("erp_logged_in")!=="true"){
+window.location.href="index.html";
+}
+
+let orders=JSON.parse(localStorage.getItem("erp_orders"))||[];
+
+function save(){
+localStorage.setItem("erp_orders",JSON.stringify(orders));
+}
+
+function renderDashboard(){
+let total=orders.length;
+let pending=0;
+let delivered=0;
+let revenue=0;
+
+orders.forEach(o=>{
+if(o.status==="Pending") pending++;
+if(o.status==="Delivered"){ delivered++; revenue+=parseInt(o.total);}
+});
+
+document.getElementById("totalOrders").innerText=total;
+document.getElementById("pendingOrders").innerText=pending;
+document.getElementById("deliveredOrders").innerText=delivered;
+document.getElementById("totalRevenue").innerText="₹"+revenue;
+
+new Chart(document.getElementById("salesChart"),{
+type:"bar",
+data:{
+labels:orders.map(o=>o.id),
+datasets:[{label:"Revenue",data:orders.map(o=>o.total),backgroundColor:"#3b82f6"}]
+}
+});
+}
+
+function renderOrders(){
+let table=document.getElementById("orderTable");
+table.innerHTML="";
+
+orders.forEach(o=>{
+
+let actionBtn="";
+
+if(o.status==="Pending"){
+actionBtn=`<button class="btn btn-sm btn-primary" onclick="updateStatus(${o.id},'Approved')">Approve</button>`;
+}
+else if(o.status==="Approved"){
+actionBtn=`<button class="btn btn-sm btn-warning" onclick="updateStatus(${o.id},'Shipped')">Ship</button>`;
+}
+else if(o.status==="Shipped"){
+actionBtn=`<button class="btn btn-sm btn-success" onclick="updateStatus(${o.id},'Delivered')">Deliver</button>`;
+}
+else{
+actionBtn="-";
+}
+
+table.innerHTML+=`
 <tr>
-<th>Book</th>
-<th>Stock</th>
-</tr>
-</thead>
-<tbody id="inventoryTable"></tbody>
-</table>
-</div>
-</section>
+<td>${o.id}</td>
+<td>${o.client}</td>
+<td>₹${o.total}</td>
+<td class="status-${o.status}">${o.status}</td>
+<td>${actionBtn}</td>
+</tr>`;
+});
+}
 
-<!-- WAREHOUSE -->
-<section id="warehouse-section" style="display:none;">
-<div class="card p-3">
-<h5>Warehouse Stock Summary</h5>
-<p>Total Books in Stock: <strong id="totalStock">0</strong></p>
-</div>
-</section>
+function updateStatus(id,newStatus){
+let order=orders.find(o=>o.id===id);
+if(order){
+order.status=newStatus;
+save();
+renderOrders();
+renderDashboard();
+}
+}
 
-<!-- REPORTS -->
-<section id="reports-section" style="display:none;">
-<div class="card p-3">
-<h5>Monthly Sales Report</h5>
-<canvas id="monthlyChart"></canvas>
-</div>
-</section>
+function showSection(section){
+document.getElementById("dashboard-section").style.display="none";
+document.getElementById("orders-section").style.display="none";
+document.getElementById(section+"-section").style.display="block";
+}
 
-</div>
+function logout(){
+localStorage.clear();
+window.location.href="index.html";
+}
 
-<script src="admin-system.js"></script>
+renderDashboard();
+renderOrders();
+
+</script>
+
 </body>
 </html>
