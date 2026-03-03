@@ -8,9 +8,14 @@
 
 let cart = JSON.parse(localStorage.getItem("erp_cart")) || [];
 let orders = JSON.parse(localStorage.getItem("erp_orders")) || [];
+let payments = JSON.parse(localStorage.getItem("erp_payments")) || [];
 
 function saveCart(){
   localStorage.setItem("erp_cart", JSON.stringify(cart));
+}
+
+function savePayments(){
+  localStorage.setItem("erp_payments", JSON.stringify(payments));
 }
 
 function saveOrders(){
@@ -189,6 +194,10 @@ function completePayment(){
 
   orders.push(order);
   saveOrders();
+
+  // create payment record for admin dashboard tracking
+  payments.push({ id: order.id + 1000, orderId: order.id, amount: order.total, method: order.paymentMethod, status: order.paymentStatus && order.paymentStatus.includes('Paid')? 'Paid' : 'Pending', date: order.date });
+  savePayments();
 
   cart = [];
   saveCart();

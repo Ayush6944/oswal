@@ -25,8 +25,10 @@ body{margin:0;font-family:'Segoe UI';background:#f4f6fb;}
 
 <div class="sidebar">
 <h4>OSWAL ERP</h4>
-<a href="#" onclick="showSection('dashboard')" class="active">Dashboard</a>
-<a href="#" onclick="showSection('orders')">Orders</a>
+<a href="#" data-section="dashboard" onclick="showSection('dashboard')" class="active">Dashboard</a>
+<a href="#" data-section="orders" onclick="showSection('orders')">Orders</a>
+<a href="#" data-section="payments" onclick="showSection('payments')">Payments</a>
+<a href="#" data-section="users" onclick="showSection('users')">Users</a>
 <a href="#" onclick="logout()">Logout</a>
 </div>
 
@@ -46,6 +48,50 @@ body{margin:0;font-family:'Segoe UI';background:#f4f6fb;}
 
 <canvas id="salesChart"></canvas>
 
+<!-- Additional Visualizations -->
+<div class="row g-3 my-4">
+	<div class="col-md-6"><div class="card p-3"><h6>Revenue Trend (7 days)</h6><canvas id="revenueChart"></canvas></div></div>
+	<div class="col-md-6"><div class="card p-3"><h6>Payment Methods</h6><canvas id="paymentPie"></canvas></div></div>
+</div>
+
+</div>
+
+<!-- PAYMENTS -->
+<div id="payments-section" style="display:none;">
+<h5>Payments</h5>
+<div class="row">
+	<div class="col-md-8">
+		<table class="table mt-3"><thead><tr><th>ID</th><th>Order</th><th>Amount</th><th>Method</th><th>Status</th><th>Action</th></tr></thead>
+		<tbody id="paymentsTable"></tbody></table>
+	</div>
+	<div class="col-md-4">
+		<div class="card p-3"><h6>Automation</h6>
+			<p>Sync demo data to a CSV (simulates Appwrite→Google Sheets)</p>
+			<button class="btn btn-sm btn-primary" onclick="syncPaymentsCSV()">Export Payments CSV</button>
+			<hr>
+			<h6>Automation Logs</h6>
+			<div id="automationLogs" style="max-height:220px;overflow:auto;"></div>
+		</div>
+	</div>
+</div>
+</div>
+
+<!-- USERS -->
+<div id="users-section" style="display:none;">
+<h5>Users</h5>
+<div class="card p-3 mt-3">
+</div>
+<div class="card p-3 mt-3">
+	<div class="mb-3 row">
+		<div class="col-md-5"><input id="newUserEmail" class="form-control" placeholder="email@example.com"></div>
+		<div class="col-md-4"><select id="newUserRole" class="form-control"><option>Client</option><option>Admin</option><option>Publisher</option><option>Sales</option></select></div>
+		<div class="col-md-3"><button class="btn btn-primary w-100" onclick="addUser()">Add User</button></div>
+	</div>
+	<table class="table"><thead><tr><th>Email</th><th>Role</th><th>Actions</th></tr></thead><tbody id="usersTable"></tbody></table>
+</div>
+</div>
+</div>
+
 </div>
 
 <!-- ORDERS -->
@@ -60,6 +106,7 @@ body{margin:0;font-family:'Segoe UI';background:#f4f6fb;}
 <th>Client</th>
 <th>Total</th>
 <th>Status</th>
+<th>Assignee</th>
 <th>Action</th>
 </tr>
 </thead>
@@ -73,95 +120,218 @@ body{margin:0;font-family:'Segoe UI';background:#f4f6fb;}
 <script>
 
 if(localStorage.getItem("erp_logged_in")!=="true"){
-window.location.href="index.html";
+	window.location.href="index.html";
 }
 
-let orders=JSON.parse(localStorage.getItem("erp_orders"))||[];
+// Data stores
+let orders = JSON.parse(localStorage.getItem("erp_orders")) || [];
+let payments = JSON.parse(localStorage.getItem("erp_payments")) || [];
+let users = JSON.parse(localStorage.getItem("erp_users")) || [];
+let automationLogs = JSON.parse(localStorage.getItem("erp_automation_logs")) || [];
 
-function save(){
-localStorage.setItem("erp_orders",JSON.stringify(orders));
+// Chart instances
+let salesChartInstance = null;
+let revenueChartInstance = null;
+let paymentPieInstance = null;
+
+function saveAll(){
+	localStorage.setItem("erp_orders", JSON.stringify(orders));
+	localStorage.setItem("erp_payments", JSON.stringify(payments));
+	localStorage.setItem("erp_users", JSON.stringify(users));
+	localStorage.setItem("erp_automation_logs", JSON.stringify(automationLogs));
+}
+
+function generateDummyData(){
+	if(orders.length === 0){
+		const methods = ["UPI","Card","NetBanking","COD"];
+		const statuses = ["Pending","Approved","Shipped","Delivered"];
+		// create 8 demo orders across last week
+		for(let i=0;i<8;i++){
+			const id = Date.now() + i;
+			const total = Math.floor(Math.random()*2000)+500;
+			const date = new Date(); date.setDate(date.getDate()- (7 - i));
+			const status = statuses[Math.floor(Math.random()*statuses.length)];
+			orders.push({ id, client: `client${i}@client.com`, total, status, date: date.toISOString().slice(0,10)});
+			payments.push({ id: id+1000, orderId: id, amount: total, method: methods[Math.floor(Math.random()*methods.length)], status: Math.random()>0.3?"Paid":"Pending", date: date.toISOString().slice(0,10)});
+		}
+	}
+
+	if(users.length === 0){
+		users.push({ email: 'admin@admin.com', role:'Admin' });
+		users.push({ email: 'demo@client.com', role:'Client' });
+		users.push({ email: 'sales@publisher.com', role:'Publisher' });
+	}
+
+	if(automationLogs.length === 0){
+		automationLogs.push({time: new Date().toISOString(), action: 'SeedData', details: 'Created demo orders/payments'});
+	}
+
+	saveAll();
 }
 
 function renderDashboard(){
-let total=orders.length;
-let pending=0;
-let delivered=0;
-let revenue=0;
+	let total = orders.length;
+	let pending = orders.filter(o=>o.status==='Pending').length;
+	let delivered = orders.filter(o=>o.status==='Delivered').length;
+	let revenue = orders.reduce((s,o)=>s + (parseInt(o.total)||0), 0);
 
-orders.forEach(o=>{
-if(o.status==="Pending") pending++;
-if(o.status==="Delivered"){ delivered++; revenue+=parseInt(o.total);}
-});
+	document.getElementById("totalOrders").innerText = total;
+	document.getElementById("pendingOrders").innerText = pending;
+	document.getElementById("deliveredOrders").innerText = delivered;
+	document.getElementById("totalRevenue").innerText = "₹"+revenue;
 
-document.getElementById("totalOrders").innerText=total;
-document.getElementById("pendingOrders").innerText=pending;
-document.getElementById("deliveredOrders").innerText=delivered;
-document.getElementById("totalRevenue").innerText="₹"+revenue;
+	// Sales chart (simple)
+	if(salesChartInstance) salesChartInstance.destroy();
+	const salesCtx = document.getElementById('salesChart');
+	salesChartInstance = new Chart(salesCtx, {
+		type: 'bar',
+		data: {
+			labels: orders.map(o=>o.id),
+			datasets: [{ label: 'Revenue', data: orders.map(o=>o.total), backgroundColor: '#3b82f6' }]
+		}
+	});
 
-new Chart(document.getElementById("salesChart"),{
-type:"bar",
-data:{
-labels:orders.map(o=>o.id),
-datasets:[{label:"Revenue",data:orders.map(o=>o.total),backgroundColor:"#3b82f6"}]
+	// Revenue trend last 7 days
+	const last7 = getRevenueLastNDays(7);
+	if(revenueChartInstance) revenueChartInstance.destroy();
+	revenueChartInstance = new Chart(document.getElementById('revenueChart'),{
+		type: 'line',
+		data: { labels: last7.labels, datasets:[{label:'Revenue', data:last7.data, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.1)', fill:true}] }
+	});
+
+	// Payment method pie
+	const pmCounts = payments.reduce((acc,p)=>{ acc[p.method] = (acc[p.method]||0) + 1; return acc; }, {});
+	if(paymentPieInstance) paymentPieInstance.destroy();
+	paymentPieInstance = new Chart(document.getElementById('paymentPie'),{
+		type:'pie',
+		data:{ labels:Object.keys(pmCounts), datasets:[{data:Object.values(pmCounts), backgroundColor:['#3b82f6','#f59e0b','#6366f1','#16a34a']}] }
+	});
 }
-});
+
+function getRevenueLastNDays(n){
+	const labels = [];
+	const data = [];
+	for(let i=n-1;i>=0;i--){
+		const d = new Date(); d.setDate(d.getDate()-i);
+		const key = d.toISOString().slice(0,10);
+		labels.push(key);
+		const daySum = orders.filter(o=> (o.date && o.date.startsWith(key))).reduce((s,o)=>s + (parseInt(o.total)||0),0);
+		data.push(daySum);
+	}
+	return { labels, data };
 }
 
 function renderOrders(){
-let table=document.getElementById("orderTable");
-table.innerHTML="";
+	let table = document.getElementById('orderTable');
+	table.innerHTML = '';
+	orders.forEach(o=>{
+		let actionBtn = '-';
+		if(o.status==='Pending') actionBtn = `<button class="btn btn-sm btn-primary" onclick="updateStatus(${o.id},'Approved')">Approve</button>`;
+		else if(o.status==='Approved') actionBtn = `<button class="btn btn-sm btn-warning" onclick="updateStatus(${o.id},'Shipped')">Ship</button>`;
+		else if(o.status==='Shipped') actionBtn = `<button class="btn btn-sm btn-success" onclick="updateStatus(${o.id},'Delivered')">Deliver</button>`;
 
-orders.forEach(o=>{
+		const assignee = o.assignee || '-';
 
-let actionBtn="";
-
-if(o.status==="Pending"){
-actionBtn=`<button class="btn btn-sm btn-primary" onclick="updateStatus(${o.id},'Approved')">Approve</button>`;
-}
-else if(o.status==="Approved"){
-actionBtn=`<button class="btn btn-sm btn-warning" onclick="updateStatus(${o.id},'Shipped')">Ship</button>`;
-}
-else if(o.status==="Shipped"){
-actionBtn=`<button class="btn btn-sm btn-success" onclick="updateStatus(${o.id},'Delivered')">Deliver</button>`;
-}
-else{
-actionBtn="-";
-}
-
-table.innerHTML+=`
-<tr>
-<td>${o.id}</td>
-<td>${o.client}</td>
-<td>₹${o.total}</td>
-<td class="status-${o.status}">${o.status}</td>
-<td>${actionBtn}</td>
-</tr>`;
-});
+		table.innerHTML += `<tr><td>${o.id}</td><td>${o.client}</td><td>₹${o.total||0}</td><td class="status-${o.status}">${o.status}</td><td>${assignee}</td><td>${actionBtn} <button class="btn btn-sm btn-secondary" onclick="showAssignModal(${o.id})">Assign</button></td></tr>`;
+	});
 }
 
 function updateStatus(id,newStatus){
-let order=orders.find(o=>o.id===id);
-if(order){
-order.status=newStatus;
-save();
-renderOrders();
-renderDashboard();
+	let order = orders.find(o=>o.id===id);
+	if(order){
+		order.status = newStatus;
+		saveAll();
+		renderOrders();
+		renderDashboard();
+		logAutomation('OrderStatusChanged', `Order ${id} -> ${newStatus}`);
+	}
 }
+
+function renderPayments(){
+	const table = document.getElementById('paymentsTable');
+	table.innerHTML = '';
+	payments.forEach(p=>{
+		table.innerHTML += `<tr><td>${p.id}</td><td>${p.orderId}</td><td>₹${p.amount}</td><td>${p.method}</td><td>${p.status}</td><td>${p.status!=='Paid'?`<button class="btn btn-sm btn-success" onclick="markPaid(${p.id})">Mark Paid</button>`:'-'}</td></tr>`;
+	});
+}
+
+function markPaid(id){
+	let p = payments.find(x=>x.id===id);
+	if(p){ p.status='Paid'; saveAll(); renderPayments(); renderDashboard(); logAutomation('PaymentMarkedPaid', `Payment ${id}`); }
+}
+
+function syncPaymentsCSV(){
+	// Build CSV
+	const headers = ['payment_id','order_id','amount','method','status','date'];
+	const rows = payments.map(p=>[p.id,p.orderId,p.amount,p.method,p.status,p.date||''].join(','));
+	const csv = [headers.join(','), ...rows].join('\n');
+	const blob = new Blob([csv], { type: 'text/csv' });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a'); a.href = url; a.download = 'payments_demo.csv'; a.click(); URL.revokeObjectURL(url);
+	logAutomation('ExportPaymentsCSV','User exported payments to CSV');
+}
+
+function logAutomation(action, details){
+	automationLogs.unshift({ time: new Date().toISOString(), action, details });
+	if(automationLogs.length>50) automationLogs.pop();
+	saveAll();
+	renderAutomationLogs();
+}
+
+function renderAutomationLogs(){
+	const div = document.getElementById('automationLogs');
+	div.innerHTML = '';
+	automationLogs.forEach(l=>{ div.innerHTML += `<div><small>${l.time}</small><div><strong>${l.action}</strong> - ${l.details}</div><hr></div>`; });
+}
+
+function renderUsers(){
+	const t = document.getElementById('usersTable'); t.innerHTML='';
+	users.forEach(u=>{ t.innerHTML += `<tr><td>${u.email}</td><td>${u.role}</td><td><button class="btn btn-sm btn-danger" onclick="removeUser('${u.email}')">Remove</button></td></tr>`; });
+}
+
+function removeUser(email){ users = users.filter(u=>u.email!==email); saveAll(); renderUsers(); logAutomation('UserRemoved', email); }
+
+// Assignment modal (simple prompt) and logic
+function showAssignModal(orderId){
+	const userEmails = users.map(u=>u.email);
+	if(userEmails.length===0){ alert('No users available to assign'); return; }
+	const choice = prompt('Assign order '+orderId+' to (email) - available: '+userEmails.join(', '));
+	if(!choice) return;
+	const selected = users.find(u=>u.email===choice.trim());
+	if(!selected){ alert('User not found'); return; }
+	const o = orders.find(x=>x.id===orderId);
+	if(o){ o.assignee = selected.email; saveAll(); renderOrders(); logAutomation('AssignedOrder', `Order ${orderId} -> ${selected.email}`); }
+}
+
+function addUser(){
+	const email = (document.getElementById('newUserEmail').value||'').trim();
+	const role = document.getElementById('newUserRole').value||'Client';
+	if(!email){ alert('Enter email'); return; }
+	if(users.find(u=>u.email===email)){ alert('User exists'); return; }
+	users.push({ email, role }); saveAll(); renderUsers(); logAutomation('UserAdded', `${email} (${role})`);
+	document.getElementById('newUserEmail').value='';
 }
 
 function showSection(section){
-document.getElementById("dashboard-section").style.display="none";
-document.getElementById("orders-section").style.display="none";
-document.getElementById(section+"-section").style.display="block";
+	// hide all known sections
+	['dashboard','orders','payments','users'].forEach(s=>{ const el = document.getElementById(s+'-section'); if(el) el.style.display='none'; });
+	const target = document.getElementById(section+"-section"); if(target) target.style.display='block';
+
+	// update sidebar active link
+	document.querySelectorAll('.sidebar a').forEach(a=>{ a.classList.remove('active'); });
+	const link = document.querySelector(`.sidebar a[data-section="${section}"]`);
+	if(link) link.classList.add('active');
 }
 
-function logout(){
-localStorage.clear();
-window.location.href="index.html";
-}
+function logout(){ localStorage.clear(); window.location.href='index.html'; }
 
+// Init
+generateDummyData();
 renderDashboard();
 renderOrders();
+renderPayments();
+renderAutomationLogs();
+renderUsers();
 
 </script>
 
